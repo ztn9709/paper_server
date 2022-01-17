@@ -1,5 +1,4 @@
 const express = require('express')
-const fs = require('fs')
 let { Paper, Class } = require('./mongoose')
 
 //创建路由容器
