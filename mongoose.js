@@ -2,51 +2,43 @@ const mongoose = require('mongoose')
 const Schema = mongoose.Schema
 mongoose.connect('mongodb://localhost/research_paper')
 const paperSchema = new Schema({
+  link: {
+    type: String,
+    required: true
+  },
   title: {
     type: String,
     required: true
   },
-  author: {
+  authors: {
+    type: Array,
+    required: true
+  },
+  institutes: {
+    type: Array,
+    required: true
+  },
+  DOI: {
     type: String,
     required: true
   },
-  publishYear: {
-    type: Number,
-    required: true
-  },
-  source: {
+  abstract: {
     type: String,
     required: true
   },
-  class: {
-    type: Number,
-    required: true
-  },
-  abs: {
-    type: String,
-    required: true
-  },
-  createTime: {
+  date: {
     type: Object,
     required: true
   },
-  updateTime: {
-    type: Object,
+  areas: {
+    type: Array,
+    required: true
+  },
+  publication: {
+    type: String,
     required: true
   }
 })
 const Paper = mongoose.model('Paper', paperSchema)
 
-const classSchema = new Schema({
-  id: {
-    type: Number,
-    required: true
-  },
-  name: {
-    type: String,
-    required: true
-  }
-})
-const Class = mongoose.model('Class', classSchema)
-
-module.exports = { Paper, Class }
+module.exports = Paper
