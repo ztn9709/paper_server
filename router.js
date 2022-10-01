@@ -27,7 +27,13 @@ router.get('/api/paper/search', async function (req, res) {
   let startDate = req.query.date ? req.query.date[0] + ' 00:00:00' : '1900-00-00 00:00:00'
   let endDate = req.query.date ? req.query.date[1] + ' 00:00:00' : '2100-00-00 00:00:00'
   let pubs = req.query.pubs ? req.query.pubs : []
-  let params = req.query.area ? [{ date: { $gte: startDate, $lte: endDate } }, { publication: { $in: pubs } }, { areas: req.query.area }] : [{ date: { $gte: startDate, $lte: endDate } }, { publication: { $in: pubs } }]
+  let params = [{ date: { $gte: startDate, $lte: endDate } }, { publication: { $in: pubs } }]
+  req.query.area ? params.push({ areas: req.query.area }) : params
+  if (req.query.text) {
+    let reg = new RegExp(req.query.text, 'i')
+    let selector = { $or: [{ title: { $regex: reg } }, { abstract: { $regex: reg } }, { DOI: { $regex: reg } }, { authors: { $regex: reg } }] }
+    params.push(selector)
+  }
   data = await Paper.aggregate([
     {
       $match: { $and: params }
