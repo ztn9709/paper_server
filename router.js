@@ -5,7 +5,7 @@ const Paper = require('./mongoose')
 let router = express.Router()
 
 router.get('/api/paper', async function (req, res) {
-  let data = await Paper.find({}, { date: 1 })
+  let data = await Paper.find({}, { date: 1, abstract: 1, title: 1, DOI: 1 })
   res.send(data)
 })
 router.get('/api/paper/classify', async function (req, res) {
@@ -81,6 +81,11 @@ router.post('/api/paper', async function (req, res) {
     res.status(500).send('数据库存储出错:' + err)
     console.log('catch: ', err)
   }
+})
+router.get('/api/paper/update', async function (req, res) {
+  await Paper.findOneAndUpdate({ DOI: req.query.DOI }, { $set: { keywords: req.query.keywords } })
+  console.log('OK' + req.query.DOI)
+  res.send('OK')
 })
 
 module.exports = router

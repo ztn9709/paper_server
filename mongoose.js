@@ -37,6 +37,9 @@ const paperSchema = new Schema({
   publication: {
     type: String,
     required: true
+  },
+  keywords: {
+    type: Array
   }
 })
 const Paper = mongoose.model('Paper', paperSchema)
