@@ -20,6 +20,9 @@ router.get('/api/paper/classify', async function (req, res) {
         _id: `$${param}`,
         value: { $sum: 1 }
       }
+    },
+    {
+      $sort: { value: -1 }
     }
   ])
   res.send(data)
@@ -27,8 +30,8 @@ router.get('/api/paper/classify', async function (req, res) {
 router.get('/api/paper/search', async function (req, res) {
   let page = req.query.page ? parseInt(req.query.page) : 1
   let size = req.query.size ? parseInt(req.query.size) : 10
-  let startDate = req.query.date ? req.query.date[0] + ' 00:00:00' : '1900-00-00 00:00:00'
-  let endDate = req.query.date ? req.query.date[1] + ' 00:00:00' : '2100-00-00 00:00:00'
+  let startDate = req.query.date ? req.query.date[0] : '1900-00-00'
+  let endDate = req.query.date ? req.query.date[1] : '2100-00-00'
   let params = [{ date: { $gte: startDate, $lte: endDate } }]
   req.query.pubs ? params.push({ publication: { $in: req.query.pubs } }) : params
   req.query.area ? params.push({ areas: req.query.area }) : params
@@ -86,8 +89,27 @@ router.post('/api/paper', async function (req, res) {
   }
 })
 // router.get('/api/paper/update', async function (req, res) {
-//   await Paper.findOneAndUpdate({ DOI: req.query.DOI }, { $set: { keywords: req.query.keywords } })
-//   console.log('OK' + req.query.DOI)
+//   let data = await Paper.find({}, { _id: 0, __v: 0 })
+//   data.forEach(async item => {
+//     let date = item.date.split(' ')[0]
+//     let pub = ''
+//     if (item.publication == 'PhysRevB') {
+//       pub = 'Physical Review B'
+//     } else if (item.publication == 'PhysRevA') {
+//       pub = 'Physical Review A'
+//     } else if (item.publication == 'PhysRevLett') {
+//       pub = 'Physical Review Letters'
+//     } else if (item.publication == 'PhysRevResearch') {
+//       pub = 'Physical Review Research'
+//     } else if (item.publication == 'RevModPhys') {
+//       pub = 'Reviews of Modern Physics'
+//     } else {
+//       console.log('No found')
+//     }
+//     await Paper.findOneAndUpdate({ DOI: item.DOI }, { $set: { publication: pub, date: date } })
+//     console.log('OK' + item.DOI)
+//   })
+
 //   res.send('OK')
 // })
 router.post('/api/pdf2doi', function (req, res) {
