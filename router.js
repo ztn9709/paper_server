@@ -1,20 +1,23 @@
+const fs = require('fs')
 const express = require('express')
 const Paper = require('./mongoose')
+const formidable = require('formidable')
+const path = require('path')
 
 //创建路由容器
 let router = express.Router()
 
 router.get('/api/paper', async function (req, res) {
-  let data = await Paper.find({}, { date: 1, abstract: 1, title: 1, DOI: 1 })
+  let data = await Paper.find({}, { _id: 0, __v: 0 })
   res.send(data)
 })
 router.get('/api/paper/classify', async function (req, res) {
-  let params = req.query.classify
+  let param = req.query.classify
   data = await Paper.aggregate([
-    { $unwind: `$${params}` },
+    { $unwind: `$${param}` },
     {
       $group: {
-        _id: `$${params}`,
+        _id: `$${param}`,
         value: { $sum: 1 }
       }
     }
@@ -22,12 +25,12 @@ router.get('/api/paper/classify', async function (req, res) {
   res.send(data)
 })
 router.get('/api/paper/search', async function (req, res) {
-  let page = parseInt(req.query.page)
-  let size = parseInt(req.query.size)
+  let page = req.query.page ? parseInt(req.query.page) : 1
+  let size = req.query.size ? parseInt(req.query.size) : 10
   let startDate = req.query.date ? req.query.date[0] + ' 00:00:00' : '1900-00-00 00:00:00'
   let endDate = req.query.date ? req.query.date[1] + ' 00:00:00' : '2100-00-00 00:00:00'
-  let pubs = req.query.pubs ? req.query.pubs : []
-  let params = [{ date: { $gte: startDate, $lte: endDate } }, { publication: { $in: pubs } }]
+  let params = [{ date: { $gte: startDate, $lte: endDate } }]
+  req.query.pubs ? params.push({ publication: { $in: req.query.pubs } }) : params
   req.query.area ? params.push({ areas: req.query.area }) : params
   if (req.query.text) {
     let reg = new RegExp(req.query.text, 'i')
@@ -82,10 +85,38 @@ router.post('/api/paper', async function (req, res) {
     console.log('catch: ', err)
   }
 })
-router.get('/api/paper/update', async function (req, res) {
-  await Paper.findOneAndUpdate({ DOI: req.query.DOI }, { $set: { keywords: req.query.keywords } })
-  console.log('OK' + req.query.DOI)
-  res.send('OK')
+// router.get('/api/paper/update', async function (req, res) {
+//   await Paper.findOneAndUpdate({ DOI: req.query.DOI }, { $set: { keywords: req.query.keywords } })
+//   console.log('OK' + req.query.DOI)
+//   res.send('OK')
+// })
+router.post('/api/pdf2doi', function (req, res) {
+  const form = new formidable.IncomingForm()
+  form.uploadDir = path.join(__dirname, 'public', 'pdf_temp')
+  form.options.keepExtensions = true
+  form.parse(req, (err, fields, files) => {
+    if (err) {
+      console.log(err.message)
+    } else {
+      let exec = require('child_process').exec
+      let cmdStr = 'C:/ProgramData/Anaconda3/envs/spider/python.exe d:/database/web/node/RPDB_Server/pdfscanner.py'
+      exec(cmdStr, function (err, stdout, stderr) {
+        if (err) {
+          console.log('pdf2doi api error:' + stderr)
+        } else {
+          let data = JSON.parse(stdout)
+          res.send(data)
+          fs.unlink(files.file.filepath, err => {
+            if (err) {
+              throw err
+            }
+            let sucDate = new Date()
+            console.log('接收并删除成功！时间：' + sucDate)
+          })
+        }
+      })
+    }
+  })
 })
 
 module.exports = router
