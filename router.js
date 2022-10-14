@@ -118,24 +118,26 @@ router.post('/api/pdf2doi', function (req, res) {
   form.options.keepExtensions = true
   form.parse(req, (err, fields, files) => {
     if (err) {
-      console.log(err.message)
+      console.error(err)
+      res.status(500).send('文件上传错误！')
     } else {
-      let exec = require('child_process').exec
       let cmdStr = 'C:/ProgramData/Anaconda3/envs/spider/python.exe d:/database/web/node/RPDB_Server/pdfscanner.py'
-      exec(cmdStr, function (err, stdout, stderr) {
+      require('child_process').exec(cmdStr, (err, stdout, stderr) => {
         if (err) {
-          console.log('pdf2doi api error:' + stderr)
+          console.error(err)
+          res.status(400).send('PDF文件解析失败！')
         } else {
           let data = JSON.parse(stdout)
           res.send(data)
-          fs.unlink(files.file.filepath, err => {
-            if (err) {
-              throw err
-            }
-            let sucDate = new Date()
-            console.log('接收并删除成功！时间：' + sucDate)
-          })
+          stderr ? console.log('解析不完全，错误信息：', stderr) : console.log('解析成功')
         }
+        fs.unlink(files.file.filepath, err => {
+          if (err) {
+            throw err
+          }
+          let sucDate = new Date()
+          console.log('文件已删除！时间：' + sucDate)
+        })
       })
     }
   })
