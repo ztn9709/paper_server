@@ -365,7 +365,7 @@ def get_url(url):
         open_wiley_url(url)
     elif "doi.org/10.1063" in url or "aip.scitation.org" in url:
         open_AIP_url(url)
-    elif "doi.org/10.1149" in url or "iop.org" in url:
+    elif "doi.org/10.1088" in url or "doi.org/10.1149" in url or "iop.org" in url:
         open_IOP_url(url)
 
 
