@@ -121,7 +121,7 @@ router.post('/api/pdf2doi', function (req, res) {
       console.error(err)
       res.status(500).send('文件上传错误！')
     } else {
-      let cmdStr = 'C:/ProgramData/Anaconda3/envs/spider/python.exe d:/database/web/node/RPDB_Server/pdfscanner.py'
+      let cmdStr = 'C:/ProgramData/Anaconda3/envs/spider/python.exe D:/database/web/node/RPDB_Server/pdfscanner.py --path ' + files.file.filepath
       require('child_process').exec(cmdStr, (err, stdout, stderr) => {
         if (err) {
           console.error(err)
@@ -133,7 +133,7 @@ router.post('/api/pdf2doi', function (req, res) {
         }
         fs.unlink(files.file.filepath, err => {
           if (err) {
-            throw err
+            console.error(err)
           }
           let sucDate = new Date()
           console.log('文件已删除！时间：' + sucDate)

@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import re
@@ -8,7 +9,6 @@ from sys import stderr
 
 import pdf2doi
 import pytextrank
-import requests
 import spacy
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -18,11 +18,18 @@ from selenium.webdriver.common.by import By
 # from selenium.webdriver.support import expected_conditions as EC
 # from selenium.webdriver.support.wait import WebDriverWait
 
+# 获取文件路径
+defalut_path = os.getcwd() + "/public/pdf_temp"
+parser = argparse.ArgumentParser()
+parser.add_argument('--path', type=str, default=defalut_path)
+args = parser.parse_args()
+target_path = args.path
+
 # pdf2doi配置项
 pdf2doi.config.set("verbose", False)
 pdf2doi.config.set("save_identifier_metadata", False)
 pdf2doi.config.set("websearch", False)
-target_path = os.getcwd() + "/public/pdf_temp"
+
 # chrome配置项
 chrome_path = "C:\\ProgramData\\Anaconda3\\chromedriver.exe"
 options = webdriver.ChromeOptions()
@@ -51,8 +58,6 @@ data = {
 
 
 def open_APS_url(url):
-    # resp = requests.get(url)
-    # soup = BeautifulSoup(resp.text, "lxml")
     options.page_load_strategy = "eager"
     driver = webdriver.Chrome(service=Service(chrome_path), options=options)
     driver.set_page_load_timeout(30)
@@ -306,48 +311,41 @@ def open_AIP_url(url):
     except:
         stderr.write(traceback.format_exc())
 
-    # title = (driver.find_element(By.CLASS_NAME, "publicationHeader_title").find_element(
-    #     By.CLASS_NAME,
-    #     "title").text.replace("\n", ""))
-    # author_list = []
-    # author_list1 = driver.find_elements(By.CLASS_NAME, "contrib-author")
-    # for i in range(len(author_list1)):
-    #     author_list.append(author_list1[i].find_elements(By.TAG_NAME,
-    #                                                      "a")[1].text)
-    # author = ",".join(author_list)
-    # magazine = driver.find_element(
-    #     By.CLASS_NAME, "publicationContentCitation").text.split(";")[0]
-    # try:
-    #     abstract = driver.find_element(By.CLASS_NAME,
-    #                                    "abstractSection.abstractInFull").text
-    # except:
-    #     abstract = "\n"
-    # print(title, "\n", url, "\n", magazine, "\n", author, "\n", abstract)
-    # driver.close()
-    # driver.quit()
-
 
 def open_IOP_url(url):
+    options.page_load_strategy = "eager"
     driver = webdriver.Chrome(service=Service(chrome_path), options=options)
+    driver.set_page_load_timeout(30)
     driver.get(url)
-    title = driver.find_element(By.CLASS_NAME,
-                                "wd-jnl-art-title").text.replace("\n", "")
-    author_list1 = driver.find_element(By.CLASS_NAME, "mb-0")
-    author_list2 = author_list1.find_elements(By.XPATH,
-                                              r'//span [@itemprop="name"]')
-    author_list = []
-    for i in range(len(author_list2)):
-        author_list.append(author_list2[i].text)
-    author = ",".join(author_list)
-    magazine = driver.find_element(By.CLASS_NAME, "publication-title").text
+    time.sleep(1)
     try:
-        abstract = driver.find_element(
-            By.CLASS_NAME, "article-text.wd-jnl-art-abstract.cf").text
+        driver.find_element(By.CLASS_NAME, "reveal-trigger-label.d-ib").click()
     except:
-        abstract = "\n"
-    print(title, "\n", url, "\n", magazine, "\n", author, "\n", abstract)
-    driver.close()
+        pass
+    time.sleep(0.5)
+    try:
+        driver.find_element(By.ID, "wd-article-info-accordion").click()
+    except:
+        pass
+    time.sleep(1)
+    soup = BeautifulSoup(driver.page_source, "lxml")
     driver.quit()
+    try:
+        data["link"] = url
+        data["title"] = soup.select("h1")[0].text
+        for author in soup.select(".mb-0 .nowrap>span"):
+            data["authors"].append(author.text)
+        for institute in soup.select(".wd-jnl-art-author-affiliations>.mb-05"):
+            data["institutes"].append(re.sub(r"^\d", "", institute.text).replace("\n", "").strip())
+        data["DOI"] = soup.select(".wd-jnl-art-doi>p>a")[0].text
+        data["abstract"] = soup.select(".article-text.wd-jnl-art-abstract.cf>p")[0].text
+        date = soup.find(attrs={"itemprop": "datePublished"}).text
+        data["date"] = str(datetime.strptime(date, "%d %B %Y")).split(" ")[0]
+        data["publication"] = soup.select(".publication-title")[0].text.replace("\n", "")
+        text = data["title"].lower() + ". " + data["abstract"].lower()
+        data["keywords"] = extract_keywords(text)
+    except:
+        stderr.write(traceback.format_exc())
 
 
 def get_url(url):
@@ -385,13 +383,13 @@ def extract_keywords(text):
 
 
 if __name__ == "__main__":
-    # url = "https://aip.scitation.org/doi/full/10.1063/5.0099590"
+    result = pdf2doi.pdf2doi(target_path)
+    url = "https://doi.org/" + result["identifier"]
+    get_url(url)
+    print(json.dumps(data))
+    # url = "https://iopscience.iop.org/article/10.1088/1361-648X/ac9814"
     # start_time = datetime.now()
     # get_url(url)
     # end_time = datetime.now()
     # print(data)
     # print(end_time - start_time)
-    result = pdf2doi.pdf2doi(target_path)[0]
-    url = "https://dx.doi.org/" + result["identifier"]
-    get_url(url)
-    print(json.dumps(data))
