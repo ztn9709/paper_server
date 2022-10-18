@@ -40,6 +40,9 @@ const paperSchema = new Schema({
   },
   keywords: {
     type: Array
+  },
+  topo_label: {
+    type: Number
   }
 })
 const Paper = mongoose.model('Paper', paperSchema)
