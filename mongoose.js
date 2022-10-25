@@ -1,6 +1,8 @@
 const mongoose = require('mongoose')
 const Schema = mongoose.Schema
-mongoose.connect('mongodb://localhost/research_paper')
+const url_altas = 'mongodb+srv://zhutiannian:ZWYYJFztn212324@cluster0.lyx5kly.mongodb.net/research_paper?retryWrites=true&w=majority'
+const url_local = 'mongodb://localhost/research_paper'
+mongoose.connect(url_local)
 const paperSchema = new Schema({
   link: {
     type: String,
