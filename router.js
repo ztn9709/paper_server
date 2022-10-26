@@ -115,7 +115,7 @@ router.post('/api/pdf2doi', function (req, res) {
       console.error(err)
       res.status(500).send('文件上传错误！')
     } else {
-      let cmdStr = 'C:/ProgramData/Anaconda3/envs/spider/python.exe D:/database/web/node/RPDB_Server/pdfscanner.py --path ' + files.file.filepath
+      let cmdStr = 'C:/ProgramData/Anaconda3/envs/spider/python.exe D:/database/research_paper_db/server/pdfscanner.py --path ' + files.file.filepath
       require('child_process').exec(cmdStr, (err, stdout, stderr) => {
         if (err) {
           console.error(err)

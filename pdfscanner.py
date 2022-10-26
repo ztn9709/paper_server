@@ -9,6 +9,7 @@ from sys import stderr
 
 import pdf2doi
 import pytextrank
+import requests
 import spacy
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -21,7 +22,7 @@ from selenium.webdriver.common.by import By
 # 获取文件路径
 defalut_path = os.getcwd() + "/public/pdf_temp"
 parser = argparse.ArgumentParser()
-parser.add_argument('--path', type=str, default=defalut_path)
+parser.add_argument("--path", type=str, default=defalut_path)
 args = parser.parse_args()
 target_path = args.path
 
@@ -38,22 +39,26 @@ options.add_argument("--disable-gpu")
 options.add_argument("--disable-blink-features=AutomationControlled")
 options.add_argument("window-size=1920,3120")
 options.add_argument(
-    "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36")
+    "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36"
+)
 options.add_argument("--ignore-ssl-errors")
 options.add_argument("--ignore-certificate-errors")
-options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
+options.add_experimental_option(
+    "excludeSwitches", ["enable-automation", "enable-logging"]
+)
 
 data = {
-    "link": "",
-    "title": "",
-    "authors": [],
-    "institutes": [],
+    "url": "",
     "DOI": "",
-    "abstract": "",
     "date": "",
     "publication": "",
-    "areas": [],
+    "title": "",
+    "abstract": "",
+    "authors": [],
     "keywords": [],
+    "subjects": [],
+    "fund-sponsor": "",
+    "fund-no": "",
 }
 
 
@@ -75,9 +80,9 @@ def open_APS_url(url):
                 data["institutes"].append(re.sub(r"^\d", "", institute.text))
         data["DOI"] = soup.select(".doi-field")[0].text
         data["abstract"] = soup.select(".abstract .content p")[0].text
-        data["date"] = soup.find(attrs={
-            "property": "article:published_time"
-        }).attrs["content"]
+        data["date"] = soup.find(attrs={"property": "article:published_time"}).attrs[
+            "content"
+        ]
         if soup.select(".physh-concepts"):
             for area in soup.select(".physh-concepts")[0].select(".physh-concept"):
                 data["areas"].append(area.text)
@@ -95,7 +100,9 @@ def open_ACS_url(url):
     time.sleep(1)
     try:
         driver.find_element(
-            By.XPATH, "//*[@id='pb-page-content']/div/main/article/div[2]/div/div[2]/div/div/div[1]/div[4]/div[2]/div/div/div/ul/*/a/i").click()
+            By.XPATH,
+            "//*[@id='pb-page-content']/div/main/article/div[2]/div/div[2]/div/div/div[1]/div[4]/div[2]/div/div/div/ul/*/a/i",
+        ).click()
     except:
         pass
     time.sleep(1)
@@ -121,7 +128,9 @@ def open_ACS_url(url):
             if sub.text:
                 data["areas"].append(sub.text)
         data["publication"] = soup.select(".cit-title")[0].text
-        data["keywords"] = (soup.find(attrs={"name": "keywords"}).attrs["content"].split(","))
+        data["keywords"] = (
+            soup.find(attrs={"name": "keywords"}).attrs["content"].split(",")
+        )
     except:
         stderr.write(traceback.format_exc())
 
@@ -142,7 +151,11 @@ def open_Elsevier_url(url):
         data["link"] = url
         data["title"] = soup.select(".title-text")[0].text
         for author in soup.select(".author.size-m.workspace-trigger"):
-            full_name = (author.select(".given-name")[0].text + " " + author.select(".surname")[0].text)
+            full_name = (
+                author.select(".given-name")[0].text
+                + " "
+                + author.select(".surname")[0].text
+            )
             data["authors"].append(full_name)
         for institute in soup.select(".affiliation dd"):
             data["institutes"].append(institute.text)
@@ -153,7 +166,11 @@ def open_Elsevier_url(url):
                 abs.append(para.select("h3")[0].text)
             abs.append(para.select("p")[0].text)
         data["abstract"] = "\n".join(abs).replace("\xa0", " ")
-        data["date"] = "-".join(soup.find(attrs={"name": "citation_publication_date"}).attrs["content"].split("/"))
+        data["date"] = "-".join(
+            soup.find(attrs={"name": "citation_publication_date"})
+            .attrs["content"]
+            .split("/")
+        )
         data["publication"] = soup.select(".publication-title-link")[0].text
         for keyword in soup.select(".keyword span"):
             data["keywords"].append(keyword.text)
@@ -176,7 +193,8 @@ def open_Nature_url(url):
         for institute in soup.select(".c-article-author-affiliation__address"):
             data["institutes"].append(institute.text)
         data["DOI"] = soup.select(
-            ".c-bibliographic-information__list-item--doi .c-bibliographic-information__value")[0].text
+            ".c-bibliographic-information__list-item--doi .c-bibliographic-information__value"
+        )[0].text
         data["abstract"] = soup.select(".c-article-section__content")[0].text
         data["date"] = soup.select("time")[0].attrs["datetime"]
         data["publication"] = soup.select(".c-header__logo img")[0].attrs["alt"]
@@ -208,7 +226,12 @@ def open_RSC_url(url):
             if len(author.text) > 1:
                 data["authors"].append(author.text.replace("\n", " "))
         for institute in soup.select(".article__author-affiliation")[1:]:
-            data["institutes"].append(institute.select("span")[1].text.split("E-mail")[0].replace("\n", "").strip())
+            data["institutes"].append(
+                institute.select("span")[1]
+                .text.split("E-mail")[0]
+                .replace("\n", "")
+                .strip()
+            )
         data["DOI"] = soup.select(".doi-link>dd")[0].text
         data["abstract"] = soup.select(".capsule__text")[0].text.replace("\n", "")
         for item in soup.select(".c.fixpadt--l"):
@@ -269,8 +292,11 @@ def open_wiley_url(url):
         #     data["institutes"].append(arr)
         # 点击展开，每个人分别对应一栏机构，可直接在页面源码获得
         data["DOI"] = soup.select(".epub-doi")[0].text
-        data["abstract"] = (soup.select(".article-section__content.main")
-                            [0].text.replace("\xa0", " ").replace("\n", ""))
+        data["abstract"] = (
+            soup.select(".article-section__content.main")[0]
+            .text.replace("\xa0", " ")
+            .replace("\n", "")
+        )
         date = soup.select(".epub-date")[0].text
         data["date"] = str(datetime.strptime(date, "%d %B %Y")).split(" ")[0]
         data["publication"] = soup.select(".pb-dropzone img")[0].attrs["alt"]
@@ -297,7 +323,7 @@ def open_AIP_url(url):
         data["link"] = url
         data["title"] = soup.select(".publicationHeader_title>li")[0].text
         for author in soup.select(".entryAuthor>span>a"):
-            if(author.text):
+            if author.text:
                 data["authors"].append(author.text.strip())
         for institute in soup.select(".author-affiliation"):
             data["institutes"].append(re.sub(r"^\d", "", institute.text))
@@ -336,12 +362,16 @@ def open_IOP_url(url):
         for author in soup.select(".mb-0 .nowrap>span"):
             data["authors"].append(author.text)
         for institute in soup.select(".wd-jnl-art-author-affiliations>.mb-05"):
-            data["institutes"].append(re.sub(r"^\d", "", institute.text).replace("\n", "").strip())
+            data["institutes"].append(
+                re.sub(r"^\d", "", institute.text).replace("\n", "").strip()
+            )
         data["DOI"] = soup.select(".wd-jnl-art-doi>p>a")[0].text
         data["abstract"] = soup.select(".article-text.wd-jnl-art-abstract.cf>p")[0].text
         date = soup.find(attrs={"itemprop": "datePublished"}).text
         data["date"] = str(datetime.strptime(date, "%d %B %Y")).split(" ")[0]
-        data["publication"] = soup.select(".publication-title")[0].text.replace("\n", "")
+        data["publication"] = soup.select(".publication-title")[0].text.replace(
+            "\n", ""
+        )
         text = data["title"].lower() + ". " + data["abstract"].lower()
         data["keywords"] = extract_keywords(text)
     except:
@@ -382,10 +412,59 @@ def extract_keywords(text):
     return keywords
 
 
+def elsevier_api(identifier):
+    url = f'https://api.elsevier.com/content/search/scopus?query=DOI("{identifier}")&view=COMPLETE'
+    headers = {
+        "X-ELS-APIKey": "d5ea4b9f6d926fdc23703e67bb770013",
+        "Accept": "application/json",
+    }
+    response = requests.request("GET", url, headers=headers).json()
+    if response["search-results"]["opensearch:totalResults"] == "0":
+        return
+    raw_data = response["search-results"]["entry"][0]
+    try:
+        data["url"] = "https://doi.org/" + identifier
+        data["DOI"] = raw_data["prism:doi"]
+        data["date"] = raw_data["prism:coverDate"]
+        data["publication"] = raw_data["prism:publicationName"]
+        data["title"] = raw_data["dc:title"]
+        data["abstract"] = raw_data["dc:description"]
+
+        affiliations = {
+            af["afid"]: ", ".join(
+                [af["affilname"], af["affiliation-city"], af["affiliation-country"]]
+            )
+            for af in raw_data["affiliation"]
+        }
+        for auth in raw_data["author"]:
+            author = {
+                "name": auth["given-name"] + " " + auth["surname"],
+                "email": "",
+                "id": "",
+                "affiliation": [affiliations[afid["$"]] for afid in auth["afid"]],
+            }
+            data["authors"].append(author)
+    except:
+        stderr.write(traceback.format_exc())
+    try:
+        data["keywords"] = raw_data["authkeywords"].split(" | ")
+    except:
+        text = data["title"].lower() + ". " + data["abstract"].lower()
+        data["keywords"] = extract_keywords(text)
+    try:
+        data.update({"fund-sponsor": raw_data["fund-sponsor"]})
+    except:
+        pass
+    try:
+        data.update({"fund-no": raw_data["fund-no"]})
+    except:
+        pass
+
+
 if __name__ == "__main__":
     result = pdf2doi.pdf2doi(target_path)
     url = "https://doi.org/" + result["identifier"]
-    get_url(url)
+    elsevier_api(result["identifier"])
     print(json.dumps(data))
     # url = "https://iopscience.iop.org/article/10.1088/1361-648X/ac9814"
     # start_time = datetime.now()
