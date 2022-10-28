@@ -39,7 +39,7 @@ router.get('/api/paper/search', async function (req, res) {
   if (req.query.text) {
     let text = req.query.text.replace(/[~`!@#$%^&*()+={}\[\];:\'\"<>.,\/\\-_]/g, '\\$&')
     let reg = new RegExp(text, 'i')
-    let selector = { $or: [{ title: { $regex: reg } }, { abstract: { $regex: reg } }, { DOI: { $regex: reg } }, { authors: { $regex: reg } }] }
+    let selector = { $or: [{ title: { $regex: reg } }, { abstract: { $regex: reg } }] }
     params.push(selector)
   }
   data = await Paper.aggregate([

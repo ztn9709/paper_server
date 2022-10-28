@@ -1,6 +1,6 @@
 const mongoose = require('mongoose')
 const Schema = mongoose.Schema
-const url_local = 'mongodb://localhost/research_paper'
+const url_local = 'mongodb://127.0.0.1/research_paper'
 mongoose.connect(url_local)
 const paperSchema = new Schema({
   link: {
