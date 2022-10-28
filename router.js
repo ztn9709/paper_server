@@ -8,7 +8,7 @@ const path = require('path')
 let router = express.Router()
 
 router.get('/api/paper', async function (req, res) {
-  let data = await Paper.find({}, { _id: 0, __v: 0 }).sort({ _id: 1 })
+  let data = await Paper.find({}, { _id: 0, __v: 0 }).sort({ date: -1, _id: -1 })
   res.send(data)
 })
 router.get('/api/paper/classify', async function (req, res) {
@@ -33,11 +33,11 @@ router.get('/api/paper/search', async function (req, res) {
   let size = req.query.size ? parseInt(req.query.size) : 10
   let startDate = req.query.date ? req.query.date[0] : '1900-00-00'
   let endDate = req.query.date ? req.query.date[1] : '2100-00-00'
-  let params = [{ topo_label: 1 }, { date: { $gte: startDate, $lte: endDate } }]
+  let params = [{ date: { $gte: startDate, $lte: endDate } }]
   req.query.pubs ? params.push({ publication: { $in: req.query.pubs } }) : params
   req.query.area ? params.push({ areas: req.query.area }) : params
   if (req.query.text) {
-    let text = req.query.text.replace(/[~`!@#$%^&*()+={}\[\];:\'\"<>.,\/\\\?-_]/g, '\\$&')
+    let text = req.query.text.replace(/[~`!@#$%^&*()+={}\[\];:\'\"<>.,\/\\-_]/g, '\\$&')
     let reg = new RegExp(text, 'i')
     let selector = { $or: [{ title: { $regex: reg } }, { abstract: { $regex: reg } }, { DOI: { $regex: reg } }, { authors: { $regex: reg } }] }
     params.push(selector)

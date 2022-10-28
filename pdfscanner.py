@@ -57,8 +57,8 @@ data = {
     "authors": [],
     "keywords": [],
     "subjects": [],
-    "fund-sponsor": "",
-    "fund-no": "",
+    "fundings": [],
+    "refs": [],
 }
 
 
@@ -401,7 +401,7 @@ def get_url(url):
 
 def extract_keywords(text):
     # 导入模块en_core_web_lg
-    nlp = spacy.load("en_core_web_lg")
+    nlp = spacy.load("en_core_sci_lg")
     # add PyTextRank to the spaCy pipeline
     nlp.add_pipe("positionrank")
     doc = nlp(text)
@@ -413,62 +413,105 @@ def extract_keywords(text):
 
 
 def elsevier_api(identifier):
-    url = f'https://api.elsevier.com/content/search/scopus?query=DOI("{identifier}")&view=COMPLETE'
+    url = f"https://api.elsevier.com/content/abstract/doi/{identifier}?&view=FULL"
     headers = {
         "X-ELS-APIKey": "d5ea4b9f6d926fdc23703e67bb770013",
         "Accept": "application/json",
     }
-    response = requests.request("GET", url, headers=headers).json()
-    if response["search-results"]["opensearch:totalResults"] == "0":
+    res = requests.request("GET", url, headers=headers)
+    if res.status_code != 200:
         return
-    raw_data = response["search-results"]["entry"][0]
+    raw_data = res.json()["abstracts-retrieval-response"]
     try:
         data["url"] = "https://doi.org/" + identifier
-        data["DOI"] = raw_data["prism:doi"]
-        data["date"] = raw_data["prism:coverDate"]
-        data["publication"] = raw_data["prism:publicationName"]
-        data["title"] = raw_data["dc:title"]
-        data["abstract"] = raw_data["dc:description"]
-
+        data["DOI"] = raw_data["coredata"]["prism:doi"]
+        data["date"] = raw_data["coredata"]["prism:coverDate"]
+        data["publication"] = raw_data["coredata"]["prism:publicationName"]
+        data["title"] = raw_data["coredata"]["dc:title"]
+        data["abstract"] = raw_data["coredata"]["dc:description"]
         affiliations = {
-            af["afid"]: ", ".join(
+            af["@id"]: ", ".join(
                 [af["affilname"], af["affiliation-city"], af["affiliation-country"]]
             )
             for af in raw_data["affiliation"]
         }
-        for auth in raw_data["author"]:
-            author = {
-                "name": auth["given-name"] + " " + auth["surname"],
-                "email": "",
-                "id": "",
-                "affiliation": [affiliations[afid["$"]] for afid in auth["afid"]],
-            }
+        for auth in raw_data["authors"]["author"]:
+            if type(auth["affiliation"]) == dict:
+                author = {
+                    "name": auth["preferred-name"]["ce:given-name"]
+                    + " "
+                    + auth["preferred-name"]["ce:surname"],
+                    "affiliation": [affiliations[auth["affiliation"]["@id"]]],
+                    "email": "",
+                    "id": "",
+                }
+            else:
+                ids = [afid["@id"] for afid in auth["affiliation"]]
+                author = {
+                    "name": auth["preferred-name"]["ce:given-name"]
+                    + " "
+                    + auth["preferred-name"]["ce:surname"],
+                    "affiliation": [affiliations[id] for id in ids],
+                    "email": "",
+                    "id": "",
+                }
             data["authors"].append(author)
     except:
         stderr.write(traceback.format_exc())
     try:
-        data["keywords"] = raw_data["authkeywords"].split(" | ")
+        data["keywords"] = [
+            word["$"] for word in raw_data["authkeywords"]["author-keyword"]
+        ]
     except:
         text = data["title"].lower() + ". " + data["abstract"].lower()
         data["keywords"] = extract_keywords(text)
     try:
-        data.update({"fund-sponsor": raw_data["fund-sponsor"]})
+        data["subjects"] = [
+            area["$"] for area in raw_data["subject-areas"]["subject-area"]
+        ]
     except:
         pass
     try:
-        data.update({"fund-no": raw_data["fund-no"]})
+        fundinglist = raw_data["item"]["xocs:meta"]["xocs:funding-list"]["xocs:funding"]
+        if type(fundinglist) == dict:
+            if "xocs:funding-agency" in fundinglist:
+                fund_sponsor = fundinglist["xocs:funding-agency"]
+            else:
+                fund_sponsor = fundinglist["xocs:funding-agency-matched-string"]
+            if "xocs:funding-id" in fundinglist:
+                if type(fundinglist["xocs:funding-id"]) == str:
+                    fund_id = [fundinglist["xocs:funding-id"]]
+                else:
+                    fund_id = [id["$"] for id in fundinglist["xocs:funding-id"]]
+            else:
+                fund_id = []
+            data["fundings"].append({"fund-sponsor": fund_sponsor, "fund-id": fund_id})
+        else:
+            for fundinfo in fundinglist:
+                if "xocs:funding-agency" in fundinfo:
+                    fund_sponsor = fundinfo["xocs:funding-agency"]
+                else:
+                    fund_sponsor = fundinfo["xocs:funding-agency-matched-string"]
+                if "xocs:funding-id" in fundinfo:
+                    if type(fundinfo["xocs:funding-id"]) == str:
+                        fund_id = [fundinfo["xocs:funding-id"]]
+                    else:
+                        fund_id = [id["$"] for id in fundinfo["xocs:funding-id"]]
+                else:
+                    fund_id = []
+                data["fundings"].append(
+                    {"fund-sponsor": fund_sponsor, "fund-id": fund_id}
+                )
+    except:
+        pass
+    try:
+        refs = raw_data["item"]["bibrecord"]["tail"]["bibliography"]["reference"]
+        data["refs"] = [ref["ref-fulltext"] for ref in refs]
     except:
         pass
 
 
 if __name__ == "__main__":
     result = pdf2doi.pdf2doi(target_path)
-    url = "https://doi.org/" + result["identifier"]
     elsevier_api(result["identifier"])
     print(json.dumps(data))
-    # url = "https://iopscience.iop.org/article/10.1088/1361-648X/ac9814"
-    # start_time = datetime.now()
-    # get_url(url)
-    # end_time = datetime.now()
-    # print(data)
-    # print(end_time - start_time)

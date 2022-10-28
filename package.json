@@ -6,7 +6,7 @@
     "express": "^4.17.1",
     "express-art-template": "^1.0.1",
     "formidable": "^2.0.1",
-    "mongoose": "^6.1.2",
+    "mongoose": "^6.7.0",
     "nodemon": "^2.0.20",
     "vue": "^2.6.14"
   },
