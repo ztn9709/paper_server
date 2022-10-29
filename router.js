@@ -8,7 +8,7 @@ const path = require('path')
 let router = express.Router()
 
 router.get('/api/paper', async function (req, res) {
-  let data = await Paper.find({}, { _id: 0, __v: 0 }).sort({ date: -1, _id: -1 })
+  let data = await Paper.find({}, { _id: 0, __v: 0 }).sort({ date: -1, DOI: -1 })
   res.send(data)
 })
 router.get('/api/paper/classify', async function (req, res) {
@@ -31,9 +31,8 @@ router.get('/api/paper/classify', async function (req, res) {
 router.get('/api/paper/search', async function (req, res) {
   let page = req.query.page ? parseInt(req.query.page) : 1
   let size = req.query.size ? parseInt(req.query.size) : 10
-  let startDate = req.query.date ? req.query.date[0] : '1900-00-00'
-  let endDate = req.query.date ? req.query.date[1] : '2100-00-00'
-  let params = [{ date: { $gte: startDate, $lte: endDate } }]
+  let params = []
+  req.query.date ? params.push({ date: { $gte: startDate, $lte: endDate } }) : params
   req.query.pubs ? params.push({ publication: { $in: req.query.pubs } }) : params
   req.query.area ? params.push({ areas: req.query.area }) : params
   if (req.query.text) {
@@ -46,7 +45,7 @@ router.get('/api/paper/search', async function (req, res) {
     {
       $match: { $and: params }
     },
-    { $sort: { date: -1, _id: -1 } },
+    { $sort: { date: -1, DOI: -1 } },
     {
       $facet: {
         total: [{ $count: 'total' }],
