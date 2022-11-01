@@ -31,10 +31,12 @@ router.get('/api/paper/classify', async function (req, res) {
 router.get('/api/paper/search', async function (req, res) {
   let page = req.query.page ? parseInt(req.query.page) : 1
   let size = req.query.size ? parseInt(req.query.size) : 10
-  let params = []
-  req.query.date ? params.push({ date: { $gte: req.query.date[0], $lte: req.query.date[1] } }) : params.push({ date: { $gte: '1900-00-00' } })
+  let params = [{ topo_label: 1 }]
+  req.query.date
+    ? params.push({ date: { $gte: req.query.date[0], $lte: req.query.date[1] } })
+    : params.push({ date: { $gte: '1900-00-00' } })
   req.query.pubs ? params.push({ publication: { $in: req.query.pubs } }) : params
-  req.query.area ? params.push({ areas: req.query.area }) : params
+  req.query.areas ? params.push({ areas: { $all: req.query.areas } }) : params
   if (req.query.text) {
     let text = req.query.text.replace(/[~`!@#$%^&*()+={}\[\];:\'\"<>.,\/\\-_]/g, '\\$&')
     let reg = new RegExp(text, 'i')
@@ -113,7 +115,9 @@ router.post('/api/pdf2doi', function (req, res) {
       console.error(err)
       res.status(500).send('文件上传错误！')
     } else {
-      let cmdStr = 'C:/ProgramData/Anaconda3/envs/spider/python.exe D:/database/research_paper_db/server/pdfscanner.py --path ' + files.file.filepath
+      let cmdStr =
+        'C:/ProgramData/Anaconda3/envs/spider/python.exe D:/database/research_paper_db/server/pdfscanner.py --path ' +
+        files.file.filepath
       require('child_process').exec(cmdStr, (err, stdout, stderr) => {
         if (err) {
           console.error(err)
