@@ -29,23 +29,35 @@ router.get('/api/paper/classify', async function (req, res) {
   res.send(data)
 })
 router.get('/api/paper/search', async function (req, res) {
+  let sort = { date: -1, DOI: -1 }
   let page = req.query.page ? parseInt(req.query.page) : 1
   let size = req.query.size ? parseInt(req.query.size) : 10
   let params = []
-  req.query.date ? params.push({ date: { $gte: req.query.date[0], $lte: req.query.date[1] } }) : params.push({ date: { $gte: '1900-00-00' } })
+  req.query.date
+    ? params.push({ date: { $gte: req.query.date[0], $lte: req.query.date[1] } })
+    : params.push({ date: { $gte: '1900-00-00' } })
   req.query.subs ? params.push({ topo_label: { $in: req.query.subs.map(Number) } }) : params
   req.query.pubs ? params.push({ publication: { $in: req.query.pubs } }) : params
   req.query.areas ? params.push({ areas: { $in: req.query.areas } }) : params
-  if (req.query.text) {
-    let text = req.query.text.replace(/[~`!@#$%^&*()+={}\[\];:\'\"<>.,\/\\-_]/g, '\\$&')
-    let reg = new RegExp(text, 'i')
-    params.push({ $or: [{ title: { $regex: reg } }, { abstract: { $regex: reg } }] })
+  if (req.query.reg) {
+    let key = Object.keys(req.query.reg)[0]
+    if (req.query.reg[key]) {
+      if (key == 'text') {
+        params.push({ $text: { $search: req.query.reg.text } })
+        sort = { score: { $meta: 'textScore' } }
+      } else {
+        let text = req.query.reg[key].replace(/[~`!@#$%^&*()+={}\[\];:\'\"<>.,\/\\-_]/g, '\\$&')
+        let reg = new RegExp(text, 'i')
+        params.push({ [key]: { $regex: reg } })
+      }
+    }
   }
+  sort = req.query.sort ? { date: parseInt(req.query.sort), DOI: -1 } : sort
   data = await Paper.aggregate([
     {
       $match: { $and: params }
     },
-    { $sort: { date: -1, DOI: -1 } },
+    { $sort: sort },
     {
       $facet: {
         total: [{ $count: 'total' }],
@@ -99,17 +111,9 @@ router.post('/api/paper', async function (req, res) {
   }
 })
 // router.get('/api/paper/update', async function (req, res) {
-//   let data = await Paper.find({}, { _id: 0, __v: 0 })
-//   topo_areas = ['Topological phases of matter', 'Symmetry protected topological states', 'Topological insulators', 'Topological order', 'Topological phase transition', 'Topological superconductors', 'Topological materials']
+//   let data = await Paper.find({}, { _id: 0, __v: 0 }).skip(10)
 //   data.forEach(async item => {
-//     let key = topo_areas.some(area => {
-//       return item.areas.includes(area)
-//     })
-//     if (key) {
-//       await Paper.findOneAndUpdate({ DOI: item.DOI }, { $set: { topo_label: 1 } })
-//     } else {
-//       await Paper.findOneAndUpdate({ DOI: item.DOI }, { $set: { topo_label: 0 } })
-//     }
+//     await Paper.findOneAndUpdate({ DOI: item.DOI }, { $set: { DOI: item.DOI.split('org/')[1] } })
 //   })
 //   res.send('OK')
 // })
@@ -122,7 +126,9 @@ router.post('/api/pdf2doi', function (req, res) {
       console.error(err)
       res.status(500).send('文件上传错误！')
     } else {
-      let cmdStr = 'C:/ProgramData/Anaconda3/envs/spider/python.exe D:/database/research_paper_db/server/pdfscanner.py --path ' + files.file.filepath
+      let cmdStr =
+        'C:/ProgramData/Anaconda3/envs/spider/python.exe D:/database/research_paper_db/server/pdfscanner.py --path ' +
+        files.file.filepath
       require('child_process').exec(cmdStr, (err, stdout, stderr) => {
         if (err) {
           console.error(err)
