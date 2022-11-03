@@ -39,20 +39,17 @@ router.get('/api/paper/search', async function (req, res) {
   req.query.subs ? params.push({ topo_label: { $in: req.query.subs.map(Number) } }) : params
   req.query.pubs ? params.push({ publication: { $in: req.query.pubs } }) : params
   req.query.areas ? params.push({ areas: { $in: req.query.areas } }) : params
-  if (req.query.reg) {
-    let key = Object.keys(req.query.reg)[0]
-    if (req.query.reg[key]) {
-      if (key == 'text') {
-        params.push({ $text: { $search: req.query.reg.text } })
-        sort = { score: { $meta: 'textScore' } }
-      } else {
-        let text = req.query.reg[key].replace(/[~`!@#$%^&*()+={}\[\];:\'\"<>.,\/\\-_]/g, '\\$&')
-        let reg = new RegExp(text, 'i')
-        params.push({ [key]: { $regex: reg } })
-      }
-    }
+  req.query.DOI ? params.push({ DOI: req.query.DOI }) : params
+  if (req.query.text) {
+    params.push({ $text: { $search: req.query.text } })
+    sort = { score: { $meta: 'textScore' } }
   }
-  sort = req.query.sort ? { date: parseInt(req.query.sort), DOI: -1 } : sort
+  if (req.query.authors) {
+    let text = req.query.authors.replace(/[~`!@#$%^&*()+={}\[\];:\'\"<>.,\/\\-_]/g, '\\$&')
+    let reg = new RegExp(text, 'i')
+    params.push({ authors: { $regex: reg } })
+  }
+  sort = req.query.sort ? { date: parseInt(req.query.sort), DOI: parseInt(req.query.sort) } : sort
   data = await Paper.aggregate([
     {
       $match: { $and: params }
@@ -111,9 +108,13 @@ router.post('/api/paper', async function (req, res) {
   }
 })
 // router.get('/api/paper/update', async function (req, res) {
-//   let data = await Paper.find({}, { _id: 0, __v: 0 }).skip(10)
+//   let data = await Paper.aggregate([
+//     { $group: { _id: '$DOI', value: { $sum: 1 } } },
+//     { $match: { value: { $gt: 1 } } }
+//   ])
+//   console.log(data)
 //   data.forEach(async item => {
-//     await Paper.findOneAndUpdate({ DOI: item.DOI }, { $set: { DOI: item.DOI.split('org/')[1] } })
+//     await Paper.findOneAndDelete({ DOI: item._id })
 //   })
 //   res.send('OK')
 // })
